@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: shuler7/find-your-pet-backend:1.0
+          image: lab5-backend:1.5
           ports:
             - containerPort: 8000
           resources:
@@ -37,7 +37,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-service
+  name: backend
   namespace: lab5
 spec:
   type: ClusterIP

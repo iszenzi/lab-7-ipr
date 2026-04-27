@@ -1,4 +1,4 @@
-const API_BASENAME = import.meta.env.APP_URL;
+const API_BASENAME = "/api";
 export const API_PATHS = {
     auth: API_BASENAME + "/me",
     refresh: API_BASENAME + "/refresh",
