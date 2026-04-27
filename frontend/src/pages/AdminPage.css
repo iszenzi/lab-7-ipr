@@ -1,0 +1,56 @@
+#admin-page-container {
+    padding-top: 7rem;
+    padding-left: 4rem;
+    padding-right: 4rem;
+    justify-content: start;
+    align-items: start;
+}
+
+#admin-page-stats-section {
+    width: 100%;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.table-section {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    border-radius: 1rem;
+    box-shadow: 0px 5px 10px color-mix(in srgb, var(--inverse-color), transparent 95%);
+    color: var(--inverse-color);
+}
+
+.admin-table {
+    padding: .5rem;
+    width: 100%;
+    background-color: var(--main-color);
+}
+
+.admin-table td, .admin-table th {
+    text-align: start;
+    padding: .25rem .5rem;
+}
+
+.admin-table-details-column {
+    display: flex;
+    gap: .5rem;
+    flex-direction: row-reverse;
+}
+
+
+
+@media (max-width: 768px) {
+    #admin-page-container {
+        padding-top: 6rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+
+    .in-table {
+        font-size: 0;
+        padding: .5rem 1rem;
+        display: block;
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "noEmit": true,
+    "typeRoots": ["./node_modules/@types", "./node_modules/@yandex/ymaps3-types"],
+    "paths": {
+    "ymaps3": ["./node_modules/@yandex/ymaps3-types"]
+    }
+  },
+}

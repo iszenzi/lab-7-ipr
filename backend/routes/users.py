@@ -1,0 +1,394 @@
+from fastapi import APIRouter, HTTPException, Response, Request
+from pydantic import BaseModel
+from sqlalchemy import select
+from jose import JWTError, jwt
+from datetime import timedelta
+import httpx
+from dependencies import userDep, sessionDep
+import random
+from models import User
+from schemas import (
+    UserAuth,
+    UserOut,
+    UpdateEmail,
+    UpdateName,
+    UpdatePhone,
+    UpdatePassword,
+    LocationUpdate,
+    AvatarUpdate,
+    PasswordReset,
+    UpdateTg,
+    UpdateVk,
+    UpdateMax,
+)
+from auth import (
+    create_token,
+    verify_password,
+    hash_password,
+    send_verification_email,
+    send_verification_email_change,
+    send_password_reset_email,
+)
+from config import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+    SECRET_KEY,
+    ALGORITHM,
+)
+
+
+router = APIRouter()
+
+names = ["Альфа", "Барсик", "Крош", "Стрелка", "Мурзик"]
+
+
+@router.put("/user/avatar")
+async def update_avatar(
+    data: AvatarUpdate,
+    session: sessionDep,
+    current_user: userDep,
+):
+    if current_user.avatar_delete_url:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.delete(current_user.avatar_delete_url)
+        except Exception as e:
+            print(f"Ошибка при удалении старого аватара: {e}")
+    current_user.avatar_delete_url = data.avatar_delete_url
+    current_user.avatar_display_url = data.avatar_display_url
+    await session.commit()
+    return {"success": True, "message": "Аватар обновлен"}
+
+
+@router.post("/register")
+async def register(user: UserAuth, session: sessionDep):
+    existing = await session.scalar(select(User).where(User.email == user.email))
+    if existing:
+        raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
+
+    user_name = f"{random.choice(names)}{random.randint(1, 999)}"
+
+    password_hash = hash_password(user.password)
+
+    verify_token = create_token(
+        {
+            "email": user.email,
+            "password_hash": password_hash,
+            "phone": "",
+            "name": user_name,
+            "type": "verify",
+        },
+        timedelta(minutes=30),
+    )
+
+    await send_verification_email(user.email, verify_token)
+
+    return {"success": True, "message": "Проверьте email для завершения регистрации"}
+
+
+@router.post("/login")
+async def login(response: Response, data: UserAuth, session: sessionDep):
+    user = await session.scalar(select(User).where(User.email == data.email))
+    if not user or not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Неверный email или пароль")
+
+    access_token = create_token(
+        {"sub": str(user.id)}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    refresh_token = create_token(
+        {"sub": str(user.id)}, timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    )
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True)
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True)
+
+    return {"success": True, "message": "Вход выполнен", "role": user.role}
+
+
+@router.get("/verify")
+async def verify_email(token: str, session: sessionDep):
+    if not token:
+        raise HTTPException(status_code=400, detail="Токен не передан")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "verify":
+            raise HTTPException(status_code=400, detail="Неверный тип токена")
+
+        email = payload["email"]
+        password_hash = payload["password_hash"]
+        phone = payload.get("phone", "")
+        name = payload.get("name", "Пользователь")
+
+    except JWTError:
+        raise HTTPException(
+            status_code=400, detail="Ссылка недействительна или истекла"
+        )
+
+    existing = await session.scalar(select(User).where(User.email == email))
+    if existing:
+        return {"success": True, "message": "Аккаунт уже активирован. Можно входить!"}
+
+    new_user = User(
+        email=email,
+        password_hash=password_hash,
+        phone=phone,
+        name=name,
+        role="user",
+    )
+    session.add(new_user)
+    await session.commit()
+
+    return {"message": "Аккаунт успешно создан! Теперь можно войти."}
+
+
+@router.get("/me")
+async def get_me(request: Request, session: sessionDep):
+    access_token = request.cookies.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Нет access токена")
+
+    try:
+        payload = jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload["sub"])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Токен недействителен или истёк")
+
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    return {"success": True, "role": user.role}
+
+
+@router.get("/refresh")
+async def refresh_token(request: Request, response: Response, session: sessionDep):
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Нет refresh токена")
+
+    try:
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload["sub"])
+    except (JWTError, ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Недействительный refresh токен")
+
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    new_access = create_token(
+        {"sub": str(user_id)}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    response.set_cookie(key="access_token", value=new_access, httponly=True)
+
+    return {"success": True, "message": "Access токен обновлён", "role": user.role}
+
+
+@router.get("/logout")
+async def logout(response: Response):
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+
+    return {"success": True, "message": "Вы вышли"}
+
+
+@router.get("/user")
+async def get_user(request: Request, session: sessionDep, uid: int = 0):
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Нет access токена")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        current_user_id = int(payload["sub"])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Токен недействителен или истёк")
+
+    target_user_id = uid if uid != 0 else current_user_id
+
+    user = await session.get(User, target_user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    valid_user = UserOut.model_validate(user)
+
+    return {"user": valid_user}
+
+
+@router.put("/user/name")
+async def update_name(data: UpdateName, session: sessionDep, current_user: userDep):
+    current_user.name = data.name
+    await session.commit()
+    return {"success": True}
+
+
+@router.put("/user/email")
+async def update_email(
+    data: UpdateEmail,
+    response: Response,
+    session: sessionDep,
+    current_user: userDep,
+):
+    existing = await session.scalar(select(User).where(User.email == data.email))
+    if existing and existing.id != current_user.id:
+        return {"success": False, "message": "Email уже занят"}
+
+    change_token = create_token(
+        {"sub": str(current_user.id), "new_email": data.email, "type": "email_change"},
+        timedelta(minutes=30),
+    )
+
+    await send_verification_email_change(data.email, change_token)
+
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+
+    return {"success": True, "message": "Подтвердите смену email на новой почте"}
+
+
+@router.put("/user/phone")
+async def update_phone(data: UpdatePhone, session: sessionDep, current_user: userDep):
+    current_user.phone = data.phone
+    await session.commit()
+    return {"success": True}
+
+
+@router.put("/user/password")
+async def update_password(
+    data: UpdatePassword, session: sessionDep, current_user: userDep
+):
+    if not verify_password(data.curPassword, current_user.password_hash):
+        return {"success": False, "message": "Неверный текущий пароль"}
+
+    current_user.password_hash = hash_password(data.newPassword)
+    await session.commit()
+    return {"success": True}
+
+
+@router.get("/user/verify-email-change")
+async def verify_email_change(token: str, session: sessionDep, response: Response):
+    if not token:
+        raise HTTPException(status_code=400, detail="Токен не передан")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "email_change":
+            raise HTTPException(status_code=400, detail="Неверный тип токена")
+        user_id = int(payload["sub"])
+        new_email = payload["new_email"]
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Неверный или истёкший токен")
+
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    if new_email == user.email:
+        return {"success": False, "message": "Новая почта совпадает с текущей"}
+
+    existing = await session.scalar(select(User).where(User.email == new_email))
+    if existing and existing.id != user.id:
+        raise HTTPException(status_code=400, detail="Email уже занят")
+
+    user.email = new_email
+    await session.commit()
+
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+
+    return {"success": True, "message": "Email успешно изменён"}
+
+
+@router.delete("/user")
+async def delete_user(session: sessionDep, current_user: userDep, response: Response):
+    await session.delete(current_user)
+    await session.commit()
+
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+
+    return {"success": True, "message": "Аккаунт удалён"}
+
+
+@router.put("/user/location")
+async def update_location(
+    data: LocationUpdate, session: sessionDep, current_user: userDep
+):
+    current_user.notificationsLocation = data.notificationsLocation
+    await session.commit()
+    return {"success": True}
+
+
+@router.put("/user/tg")
+async def update_tg(data: UpdateTg, session: sessionDep, current_user: userDep):
+    current_user.tg = data.tg
+    await session.commit()
+    return {"success": True}
+
+
+@router.put("/user/vk")
+async def update_vk(data: UpdateVk, session: sessionDep, current_user: userDep):
+    current_user.vk = data.vk
+    await session.commit()
+    return {"success": True}
+
+
+@router.put("/user/max")
+async def update_max(data: UpdateMax, session: sessionDep, current_user: userDep):
+    current_user.max = data.max
+    await session.commit()
+    return {"success": True}
+
+
+@router.post("/user/password/reset")
+async def reset_password(data: PasswordReset, session: sessionDep):
+    user = await session.scalar(select(User).where(User.email == data.email))
+    if not user:
+        return {
+            "success": True,
+            "message": "Если email зарегистрирован, на него отправлена ссылка для сброса пароля",
+        }
+
+    password_hash = hash_password(data.new_password)
+
+    reset_token = create_token(
+        {
+            "sub": str(user.id),
+            "password_hash": password_hash,
+            "type": "password_reset",
+        },
+        timedelta(minutes=30),
+    )
+
+    await send_password_reset_email(data.email, reset_token)
+
+    return {"success": True, "message": "Проверьте email для сброса пароля"}
+
+
+@router.get("/user/verify-password-reset")
+async def verify_password_reset(token: str, session: sessionDep):
+    if not token:
+        raise HTTPException(status_code=400, detail="Токен не передан")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "password_reset":
+            raise HTTPException(status_code=400, detail="Неверный тип токена")
+
+        user_id = int(payload["sub"])
+        password_hash = payload["password_hash"]
+
+    except JWTError:
+        raise HTTPException(
+            status_code=400, detail="Ссылка недействительна или истекла"
+        )
+
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    user.password_hash = password_hash
+    await session.commit()
+
+    return {"success": True, "message": "Пароль успешно изменён"}
