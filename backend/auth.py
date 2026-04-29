@@ -11,6 +11,7 @@ from config import (
     APP_URL,
     EMAIL_FROM,
 )
+import asyncio
 import smtplib
 from email.mime.text import MIMEText
 
@@ -30,6 +31,27 @@ def hash_password(password):
     return bcrypt.hash(password)
 
 
+def _send_email_sync(msg, recipient):
+    try:
+
+        with smtplib.SMTP_SSL(SMTP_HOST, 465, timeout=10) as server:
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(EMAIL_FROM, recipient, msg.as_string())
+            print(f"Email sent successfully to {recipient} via 465")
+            return
+    except Exception as e:
+        print(f"SMTP error (465): {e}")
+        try:
+            with smtplib.SMTP(SMTP_HOST, 587, timeout=10) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.sendmail(EMAIL_FROM, recipient, msg.as_string())
+                print(f"Email sent successfully to {recipient} via 587")
+        except Exception as e2:
+            print(f"SMTP secondary error (587): {e2}")
+            print(f"Continuing registration despite email failure to {recipient}")
+
+
 async def send_verification_email(email: str, token: str):
     link = f"{APP_URL}/verify?token={token}"
     body = f"""Здравствуйте!
@@ -44,10 +66,8 @@ async def send_verification_email(email: str, token: str):
     msg["From"] = EMAIL_FROM
     msg["To"] = email
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(EMAIL_FROM, email, msg.as_string())
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _send_email_sync, msg, email)
 
 
 async def send_verification_email_change(new_email: str, token: str):
@@ -64,10 +84,8 @@ async def send_verification_email_change(new_email: str, token: str):
     msg["From"] = EMAIL_FROM
     msg["To"] = new_email
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(EMAIL_FROM, new_email, msg.as_string())
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _send_email_sync, msg, new_email)
 
 
 async def send_password_reset_email(email: str, token: str):
@@ -84,10 +102,8 @@ async def send_password_reset_email(email: str, token: str):
     msg["From"] = EMAIL_FROM
     msg["To"] = email
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(EMAIL_FROM, email, msg.as_string())
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _send_email_sync, msg, email)
 
 
 async def send_ad_notification_email(user_email: str, ad):
