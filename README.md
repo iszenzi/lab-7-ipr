@@ -1,70 +1,56 @@
-# Отчет о выполнении лабораторной работы №6
+﻿# Отчет о выполнении лабораторной работы №7
 
-## Тема: Kustomize и Helm, разделение приложения и инфраструктуры
+## Тема: Системы мониторинга и наблюдаемости (Observability)
 
-В ходе лабораторной работы была проведена реорганизация процесса развертывания приложения. Основной упор был сделан на разделение жизненных циклов инфраструктуры (БД) и самого приложения, а также на использование современных инструментов управления манифестами — Kustomize и Helm.
+В ходе лабораторной работы приложение было дополнено инструментами сбора метрик, трассировки и логирования. Настроен полноценный стек мониторинга на базе Grafana, Prometheus и Tempo для контроля состояния распределенной системы. Все требования выполнены.
 
 ### Выполненные задачи:
 
-1.  **Разделение ответственности**:
-    *   Манифесты базы данных PostgreSQL вынесены в отдельный контур **Infrastructure** (`infra/`).
-    *   Манифесты приложения (Backend, Frontend, Ingress) выделены в контур **Application** (`app/`).
-2.  **Stateful-инфраструктура**:
-    *   База данных PostgreSQL развернута через `StatefulSet`.
-    *   Настроен `Headless Service` для обеспечения стабильных сетевых идентификаторов подов.
-    *   Использованы `volumeClaimTemplates` для надежного хранения данных.
-3.  **Освоение Kustomize**:
-    *   Реализована структура `base` (общие ресурсы) и `overlays` (специфичные настройки для окружений, например `dev`).
-    *   Все окружения избавлены от дублирования кода за счет использования патчей и генераторов секретов.
-4.  **Разработка Helm-чарта**:
-    *   Создан полноценный чарт `findyourpet` для управления релизом приложения.
-    *   Параметризованы все ключевые поля: теги образов, количество реплик, параметры Ingress и строки подключения к БД.
-    *   Подготовлены файлы `values.yaml` и `values-prod.yaml` для гибкого деплоя.
-5.  **Контрактное взаимодействие**:
-    *   Приложение подключается к БД по FQDN-имени, определенному в инфраструктурном слое: `database-service.infra-dev.svc.cluster.local`.
----
+1.  **Метрики (Prometheus)**:
+    *   Реализован эндпоинт [/metrics](http://localhost:8000/metrics) с использованием prometheus-fastapi-instrumentator.
+    *   **HTTP метрики**: Сбор http_requests_total (counter) и http_request_duration_seconds (histogram) с корректными labels (без ID в путях). 
+    *   **Бизнес-метрика**: Добавлен счетчик ads_created_total в модуле объявлений.
 
-## Инструкция по запуску
+2.  **Скрейпинг (Scraping)**:
+    *   **Docker Compose**: В конфигурации Prometheus [infra/prometheus/prometheus.yml](infra/prometheus/prometheus.yml) настроен job backend.
+    *   **Kubernetes**: Подготовлен манифест [ServiceMonitor](app/k8s/helm/findyourpet/templates/servicemonitor.yaml) для Prometheus Operator.
 
-### 1. Подготовка инфраструктуры (БД)
-```powershell
-# Создание пространства имен
-kubectl create namespace infra-dev
+3.  **Трассировка (Tracing)**:
+    *   Бэкенд настроен на экспорт OTLP в **Grafana Tempo**.
+    *   В Grafana подтверждено наличие трейсов для API-запросов (скриншоты ниже).
 
-# Развертывание PostgreSQL
-kubectl apply -k infra/k8s/kustomization/overlays/dev
-```
-
-### 2. Развертывание приложения (Kustomize)
-```powershell
-# Создание пространства имен
-kubectl create namespace app-dev
-
-# Развертывание через Kustomize
-kubectl apply -k app/k8s/kustomization/overlays/dev
-```
-
-### 3. Развертывание приложения (Helm)
-Если требуется развернуть вторую копию или управлять релизом через Helm:
-```powershell
-helm upgrade --install my-app app/k8s/helm/findyourpet -n app-dev `
-  --set ingress.host=findyourpet-helm.local `
-  --set image.frontend=shuler7/find-your-pet-frontend:1.8
-```
-
-### 4. Проверка доступности
-Добавьте домены в `C:\Windows\System32\drivers\etc\hosts`:
-```
-127.0.0.1 findyourpet.local
-127.0.0.1 findyourpet-helm.local
-```
-
-### 5. Полезные ссылки
-*   **Сайт (Kustomize):** [http://findyourpet.local](http://findyourpet.local)
-*   **Сайт (Helm):** [http://findyourpet-helm.local](http://findyourpet-helm.local)
-*   **Health Check API:** [http://findyourpet.local/api/server/stats](http://findyourpet.local/api/server/stats)
+4.  **Grafana**:
+    *   Подключены Data Sources: **Prometheus** и **Tempo**.
+    *   Создан дашборд. Добавлена панель с кастомным PromQL: sum(rate(http_requests_total[5m])) by (handler) для анализа интенсивности запросов.
 
 ---
+
+## Подтверждение выполнения (Скриншоты)
+
+1.  **Prometheus Targets**:
+    ![Prometheus Targets](screenshots/image.png)
+    *Статус таргета baackend — **UP**.*
+
+2.  **Grafana Tempo Trace**:
+    ![Grafana Tempo Trace](screenshots/image1.png)
+    *Распределенный трейс запроса к API с детальной разбивкой по спанам.*
+
+3.  **Grafana Dashboard**:
+    ![Grafana Dashboard](screenshots/image2.png)
+
+---
+
+## Инструкция по запуску и проверке
+
+### 1. Запуск всего стека
+`powershell
+docker compose up -d --build
+`
+
+### 2. Ссылки на инструменты (локально)
+*   **Веб-интерфейс Grafana**: [http://localhost:3000](http://localhost:3000) (admin / admin)
+*   **Интерфейс Prometheus**: [http://localhost:9090](http://localhost:9090)
+*   **Эндпоинт метрик**: [http://localhost:8000/metrics](http://localhost:8000/metrics)
 
 ## Результат
-Приложение успешно разделено на независимые слои. База данных сохраняет данные между перезапусками, а приложение гибко настраивается под разные окружения через параметры Helm или слои Kustomize. Все выявленные баги фронтенда и сетевой связности устранены.
+Система стала полностью наблюдаемой. Реализовано отслеживание как технических (HTTP RPS, Latency) так и продуктовых (количество объявлений) показателей. Трейсинг позволяет диагностировать задержки на уровне отдельных функций бэкенда.
