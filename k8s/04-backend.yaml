@@ -33,17 +33,25 @@ spec:
                 name: app-config
             - secretRef:
                 name: app-secret
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://tempo.observability.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "findyourpet-backend"
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: backend
   namespace: lab5
+  labels:
+    app: backend
 spec:
   type: ClusterIP
   selector:
     app: backend
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 8000
       targetPort: 8000

@@ -9,3 +9,13 @@ datasources:
     type: tempo
     access: proxy
     url: http://tempo:3200
+dashboards:
+  - name: 'default'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+

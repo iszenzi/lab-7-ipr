@@ -17,13 +17,19 @@ from routes import users, ad, server
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Setup OpenTelemetry
-    resource = Resource.create(attributes={
-        RESOURCE_ATTRIBUTES.SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "findyourpet-backend")
-    })
+    resource = Resource.create(
+        attributes={
+            RESOURCE_ATTRIBUTES.SERVICE_NAME: os.getenv(
+                "OTEL_SERVICE_NAME", "findyourpet-backend"
+            )
+        }
+    )
     provider = TracerProvider(resource=resource)
     otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if otlp_endpoint:
-        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True))
+        processor = BatchSpanProcessor(
+            OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
+        )
         provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
 

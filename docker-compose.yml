@@ -8,7 +8,7 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}" ]
       interval: 3s
       timeout: 3s
       retries: 5
@@ -58,6 +58,6 @@ networks:
     internal: true
   frontend:
     driver: bridge
-  
+
 volumes:
   data:
