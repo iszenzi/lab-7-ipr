@@ -1,0 +1,3 @@
+replicaCount: 2
+database:
+  url: "postgresql+asyncpg://petuser:petpassword@database-service.infra-prod.svc.cluster.local:5432/findyourpet"

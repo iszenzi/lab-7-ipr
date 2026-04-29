@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  backend: shuler7/find-your-pet-backend:1.3
+  frontend: shuler7/find-your-pet-frontend:1.5
+  pullPolicy: IfNotPresent
+
+service:
+  backendPort: 8000
+  frontendPort: 80
+  frontendTargetPort: 5173
+
+ingress:
+  enabled: true
+  className: nginx
+  host: findyourpet.local
+
+config:
+  appUrl: "http://findyourpet.local"
+  emailFrom: "findyourpet9@gmail.com"
+  smtpHost: "smtp.gmail.com"
+
+database:
+  url: "postgresql+asyncpg://petuser:petpassword@database-service.infra-dev.svc.cluster.local:5432/findyourpet"
+  user: "petuser"
+  password: "petpassword"
+  name: "findyourpet"
+
+secrets:
+  key: "ai0d0a8hh029q-djq9-djq90d280dh0qdniqwdnq082d2nq2nd99"
+  smtpUser: "findyourpet9@gmail.com"
+  smtpPassword: "bzgcxwexxynuoium"
+  ymapsKey: "1b6ee47b-d941-482e-8b6a-7f71a6dc8f30"
+  ymapsSuggestKey: "496897cf-b795-4baa-815a-513b67e95941"
+  imageUploaderKey: "5503fcf82407810eb9f88083c2799adf"

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "findyourpet.fullname" . }}-config
+data:
+  APP_URL: {{ .Values.config.appUrl | quote }}
+  EMAIL_FROM: {{ .Values.config.emailFrom | quote }}
+  SMTP_HOST: {{ .Values.config.smtpHost | quote }}

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "findyourpet.fullname" . }}-frontend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "findyourpet.name" . }}-frontend
+  template:
+    metadata:
+      labels:
+        app: {{ include "findyourpet.name" . }}-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: {{ .Values.image.frontend }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.frontendTargetPort }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "findyourpet.fullname" . }}-config
+            - secretRef:
+                name: {{ include "findyourpet.fullname" . }}-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "findyourpet.fullname" . }}-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "findyourpet.name" . }}-frontend
+  ports:
+    - protocol: TCP
+      port: {{ .Values.service.frontendPort }}
+      targetPort: {{ .Values.service.frontendTargetPort }}
