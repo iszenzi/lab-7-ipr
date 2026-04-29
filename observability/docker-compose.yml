@@ -39,5 +39,5 @@ services:
 
 networks:
   app-network:
+    name: lab-7-ipr_backend
     external: true
-    name: lab-7-ipr_default

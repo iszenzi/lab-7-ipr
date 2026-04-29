@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
 from opentelemetry import trace
-from opentelemetry.sdk.resources import RESOURCE_ATTRIBUTES, Resource
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -16,25 +16,6 @@ from routes import users, ad, server
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Setup OpenTelemetry
-    resource = Resource.create(
-        attributes={
-            RESOURCE_ATTRIBUTES.SERVICE_NAME: os.getenv(
-                "OTEL_SERVICE_NAME", "findyourpet-backend"
-            )
-        }
-    )
-    provider = TracerProvider(resource=resource)
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    if otlp_endpoint:
-        processor = BatchSpanProcessor(
-            OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
-        )
-        provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-
-    FastAPIInstrumentor.instrument_app(app)
-
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -42,7 +23,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Prometheus metrics
+resource = Resource.create(
+    attributes={"service.name": os.getenv("OTEL_SERVICE_NAME", "findyourpet-backend")}
+)
+provider = TracerProvider(resource=resource)
+otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+if otlp_endpoint:
+    processor = BatchSpanProcessor(
+        OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
+    )
+    provider.add_span_processor(processor)
+trace.set_tracer_provider(provider)
+
+FastAPIInstrumentor.instrument_app(app)
+
 Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
