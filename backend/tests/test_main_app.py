@@ -8,7 +8,7 @@ def test_main_app_import_and_routes_exist():
 
     paths = {r.path for r in main.app.routes}
 
-    assert "/register" in paths
-    assert "/login" in paths
-    assert "/ads" in paths
-    assert "/server/stats" in paths
+    assert "/api/register" in paths
+    assert "/api/login" in paths
+    assert "/api/ads" in paths
+    assert "/api/server/stats" in paths

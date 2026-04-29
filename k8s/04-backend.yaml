@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: lab5-backend:1.5
+          image: lab5-backend:1.6
           ports:
             - containerPort: 8000
           resources:

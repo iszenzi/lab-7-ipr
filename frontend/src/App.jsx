@@ -13,6 +13,7 @@ import AuthorsPage from "./pages/AuthorsPage";
 import MyProfilePage from "./pages/MyProfilePage";
 import UserProfilePage from './pages/UserProfilePage';
 import AdminPage from "./pages/AdminPage";
+import VerifyPage from "./pages/VerifyPage";
 
 import { ApiCheckAuth } from "./apiRequests";
 import { RestartAnim } from "./functions";
@@ -83,6 +84,7 @@ export default function App() {
                     <Route path="/ad/:aid" element={<AdPage />} />
                     <Route path="/authors" element={<AuthorsPage />} />
                     <Route path="/admin" element={<AdminPage />} />
+                    <Route path="/verify" element={<VerifyPage />} />
                 </Routes>
             </Router>
             <Alert text={alert.text} color={alert.color} ref={alertRef} />

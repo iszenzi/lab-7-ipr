@@ -22,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
     allow_methods=["*"],
 )
-app.include_router(users.router)
-app.include_router(ad.router)
-app.include_router(server.router)
+
+app.include_router(users.router, prefix="/api")
+app.include_router(ad.router, prefix="/api")
+app.include_router(server.router, prefix="/api")

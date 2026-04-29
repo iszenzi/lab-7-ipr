@@ -44,13 +44,10 @@ async def send_verification_email(email: str, token: str):
     msg["From"] = EMAIL_FROM
     msg["To"] = email
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(EMAIL_FROM, email, msg.as_string())
-    except Exception as e:
-        print(f"Error sending email: {e}"); print(f"VERIFICATION LINK: {link}")
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(EMAIL_FROM, email, msg.as_string())
 
 
 async def send_verification_email_change(new_email: str, token: str):
@@ -67,13 +64,10 @@ async def send_verification_email_change(new_email: str, token: str):
     msg["From"] = EMAIL_FROM
     msg["To"] = new_email
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(EMAIL_FROM, new_email, msg.as_string())
-    except Exception as e:
-        print(f"Error sending email: {e}"); print(f"VERIFICATION LINK: {link}")
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(EMAIL_FROM, new_email, msg.as_string())
 
 
 async def send_password_reset_email(email: str, token: str):
@@ -90,13 +84,10 @@ async def send_password_reset_email(email: str, token: str):
     msg["From"] = EMAIL_FROM
     msg["To"] = email
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(EMAIL_FROM, email, msg.as_string())
-    except Exception as e:
-        print(f"Error sending email: {e}"); print(f"VERIFICATION LINK: {link}")
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(EMAIL_FROM, email, msg.as_string())
 
 
 async def send_ad_notification_email(user_email: str, ad):
@@ -134,10 +125,8 @@ async def send_ad_notification_email(user_email: str, ad):
     msg["From"] = EMAIL_FROM
     msg["To"] = user_email
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(EMAIL_FROM, user_email, msg.as_string())
-    except Exception as e:
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(EMAIL_FROM, user_email, msg.as_string())
         print(f"Ошибка отправки email на {user_email}: {e}")

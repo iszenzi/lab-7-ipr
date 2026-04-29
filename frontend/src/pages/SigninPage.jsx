@@ -14,20 +14,16 @@ import {
 } from "../apiRequests";
 
 export default function SigninPage() {
-    const [isRegister, setIsRegister] = useState(false);
-    const [isReseting, setIsReseting] = useState(false);
-    useEffect(() => {
-        const elem = document.getElementById("right-form-fields");
-        RestartAnim(elem);
-    }, [isRegister, isReseting]);
-
-    const emailInputRef = useRef();
-    const passwordInputRef = useRef();
-    const confirmPasswordRef = useRef();
-
+    const { signedIn, CheckAuth, CallAlert } = useContext(AppContext);
     const navigate = useNavigate();
 
-    const { CheckAuth, CallAlert } = useContext(AppContext);
+    useEffect(() => {
+        if (signedIn) {
+            navigate("/profile");
+        }
+    }, [signedIn, navigate]);
+
+    const [isRegister, setIsRegister] = useState(false);
 
     const [authButtonDisabled, setAuthButtonDisabled] = useState(false);
 
@@ -247,17 +243,15 @@ function RightFormToogleContainer({ isRegister, setIsRegister }) {
                 className={`${isRegister && "register"}`}
             />
             <div
-                className={`right-form-toogle-button ${
-                    !isRegister ? "active" : ""
-                }`}
+                className={`right-form-toogle-button ${!isRegister ? "active" : ""
+                    }`}
                 onClick={() => setIsRegister(false)}
             >
                 <h3>вход</h3>
             </div>
             <div
-                className={`right-form-toogle-button ${
-                    isRegister ? "active" : ""
-                }`}
+                className={`right-form-toogle-button ${isRegister ? "active" : ""
+                    }`}
                 onClick={() => setIsRegister(true)}
             >
                 <h3>регистрация</h3>
@@ -270,10 +264,10 @@ function AuthButton({ isRegister, isReseting, event, disabled }) {
     const text = disabled
         ? "Ожидайте..."
         : isRegister
-        ? "Зарегистрироваться"
-        : isReseting
-        ? "Сбросить"
-        : "Войти";
+            ? "Зарегистрироваться"
+            : isReseting
+                ? "Сбросить"
+                : "Войти";
 
     return (
         <button
