@@ -1,0 +1,9 @@
+namespace: infra-dev
+
+resources:
+  - ../../base
+  - secret.yaml
+
+commonLabels:
+  env: dev
+  app: database
