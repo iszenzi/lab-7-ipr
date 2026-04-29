@@ -14,6 +14,7 @@ import {
 } from "../apiRequests";
 
 export default function SigninPage() {
+    console.log("DEBUG: SigninPage V1.8");
     const { signedIn, CheckAuth, CallAlert } = useContext(AppContext);
     const navigate = useNavigate();
 
@@ -24,6 +25,11 @@ export default function SigninPage() {
     }, [signedIn, navigate]);
 
     const [isRegister, setIsRegister] = useState(false);
+    const [isReseting, setIsReseting] = useState(false);
+
+    const emailInputRef = useRef(null);
+    const passwordInputRef = useRef(null);
+    const confirmPasswordRef = useRef(null);
 
     const [authButtonDisabled, setAuthButtonDisabled] = useState(false);
 
