@@ -52,6 +52,38 @@ services:
     depends_on:
       - backend
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    networks:
+      - backend
+      - frontend
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      - prometheus
+
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./infra/tempo/tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "4317:4317"
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
