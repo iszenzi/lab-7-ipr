@@ -2,11 +2,16 @@ from math import radians, cos, sin, asin, sqrt
 import smtplib
 from email.mime.text import MIMEText
 import httpx
+from prometheus_client import Counter
 
 from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import select
 from datetime import datetime
 from jose import JWTError, jwt
+
+# Business metrics
+ADS_CREATED_TOTAL = Counter("ads_created_total", "Total number of ads created")
+
 from config import (
     EMAIL_FROM,
     SECRET_KEY,
@@ -40,6 +45,8 @@ async def create_ad(data: AdCreate, session: sessionDep, current_user: userDep):
         time_obj = datetime.strptime(data.time, "%d.%m.%Y %H:%M")
     except ValueError:
         return {"success": False, "message": "Неверный формат времени"}
+
+    ADS_CREATED_TOTAL.inc()
 
     ad = Ad(
         user_id=current_user.id,
