@@ -1,67 +1,75 @@
-# Отчет о выполнении лабораторной работы №5
+# Отчет о выполнении лабораторной работы №6
 
-## Тема: Развертывание приложения в Kubernetes (k8s)
+## Тема: Kustomize и Helm, разделение приложения и инфраструктуры
 
-В ходе лабораторной работы было выполнено развертывание полнофункционального веб-приложения (Frontend на React, Backend на FastAPI, БД PostgreSQL) в локальном кластере Kubernetes (Docker Desktop).
+В ходе лабораторной работы была проведена реорганизация процесса развертывания приложения. Основной упор был сделан на разделение жизненных циклов инфраструктуры (БД) и самого приложения, а также на использование современных инструментов управления манифестами — Kustomize и Helm.
 
 ### Выполненные задачи:
 
-1.  **Контейнеризация**: Собраны Docker-образы для фронтенда и бэкенда.
-2.  **Инфраструктура как код**: Подготовлены YAML-манифесты для всех ресурсов (Deployment, Service, StatefulSet, Ingress, Secret, ConfigMap).
-3.  **База данных**: Развернут PostgreSQL через `StatefulSet` с использованием `PersistentVolumeClaim` для сохранения данных.
-4.  **Сетевое взаимодействие**:
-    *   Создан `Ingress` (через Nginx Ingress Controller) для маршрутизации трафика на домен `findyourpet.local`.
-    *   Настроены внутренние `Service` для связи фронтенда с бэкендом и бэкенда с БД.
-5.  **Конфигурация и секреты**:
-    *   Все настройки (URL БД, параметры SMTP) вынесены в `ConfigMap` и `Secret`.
-    *   Настроена реальная отправка писем для подтверждения регистрации через Gmail SMTP.
-6.  **Исправления и доработки**:
-    *   Исправлен роутинг фронтенда для поддержки страницы активации аккаунта (`/verify`).
-    *   Настроен префикс API в бэкенде для корректной маршрутизации через Ingress.
-    *   Добавлена обработка ошибок 500 во фронтенде для стабильности UI.
+1.  **Разделение ответственности**:
+    *   Манифесты базы данных PostgreSQL вынесены в отдельный контур **Infrastructure** (`infra/`).
+    *   Манифесты приложения (Backend, Frontend, Ingress) выделены в контур **Application** (`app/`).
+2.  **Stateful-инфраструктура**:
+    *   База данных PostgreSQL развернута через `StatefulSet`.
+    *   Настроен `Headless Service` для обеспечения стабильных сетевых идентификаторов подов.
+    *   Использованы `volumeClaimTemplates` для надежного хранения данных.
+3.  **Освоение Kustomize**:
+    *   Реализована структура `base` (общие ресурсы) и `overlays` (специфичные настройки для окружений, например `dev`).
+    *   Все окружения избавлены от дублирования кода за счет использования патчей и генераторов секретов.
+4.  **Разработка Helm-чарта**:
+    *   Создан полноценный чарт `findyourpet` для управления релизом приложения.
+    *   Параметризованы все ключевые поля: теги образов, количество реплик, параметры Ingress и строки подключения к БД.
+    *   Подготовлены файлы `values.yaml` и `values-prod.yaml` для гибкого деплоя.
+5.  **Контрактное взаимодействие**:
+    *   Приложение подключается к БД по FQDN-имени, определенному в инфраструктурном слое: `database-service.infra-dev.svc.cluster.local`.
+6.  **Исправления и оптимизация**:
+    *   Исправлены ошибки в Ingress (удален `rewrite-target` для корректной работы с FastAPI).
+    *   Устранены критические ошибки во фронтенде (объявлены недостающие `useRef` в `SigninPage.jsx`), мешавшие работе страниц регистрации и входа.
+    *   Обновлены Docker-образы до версии 1.8.
 
 ---
 
-## Инструкция по запуску приложения
+## Инструкция по запуску (v1.8)
 
-### 1. Подготовка окружения
-*   Убедитесь, что в Docker Desktop включен **Kubernetes**.
-*   Установите Ingress Controller (если еще не установлен):
-    ```powershell
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
-    ```
-*   Добавьте домен в файл `C:\Windows\System32\drivers\etc\hosts`:
-    ```
-    127.0.0.1 findyourpet.local
-    ```
-
-### 2. Применение манифестов
-Выполните команды из корня проекта:
+### 1. Подготовка инфраструктуры (БД)
 ```powershell
 # Создание пространства имен
-kubectl create namespace lab5
+kubectl create namespace infra-dev
 
-# Применение всех манифестов (секреты, конфиги, БД, приложения, ингресс)
-kubectl apply -f k8s/
+# Развертывание PostgreSQL
+kubectl apply -k infra/k8s/kustomization/overlays/dev
 ```
 
-### 3. Сборка и обновление образов (если вносились изменения)
+### 2. Развертывание приложения (Kustomize)
 ```powershell
-# Сборка бэкенда
-docker build -t shuler7/find-your-pet-backend:1.3 ./backend
-# Сборка фронтенда
-docker build -t shuler7/find-your-pet-frontend:1.5 ./frontend
+# Создание пространства имен
+kubectl create namespace app-dev
 
-# После сборки перезапустите поды для обновления
-kubectl rollout restart deployment backend-deployment -n lab5
-kubectl rollout restart deployment frontend-deployment -n lab5
+# Развертывание через Kustomize
+kubectl apply -k app/k8s/kustomization/overlays/dev
 ```
 
-### 4. Проверка статуса
+### 3. Развертывание приложения (Helm)
+Если требуется развернуть вторую копию или управлять релизом через Helm:
 ```powershell
-kubectl get pods -n lab5
+helm upgrade --install my-app app/k8s/helm/findyourpet -n app-dev `
+  --set ingress.host=findyourpet-helm.local `
+  --set image.frontend=shuler7/find-your-pet-frontend:1.8
 ```
-Все поды должны иметь статус `Running`.
 
-### 5. Доступ к приложению
-Приложение будет доступно по адресу: [http://findyourpet.local](http://findyourpet.local)
+### 4. Проверка доступности
+Добавьте домены в `C:\Windows\System32\drivers\etc\hosts`:
+```
+127.0.0.1 findyourpet.local
+127.0.0.1 findyourpet-helm.local
+```
+
+### 5. Полезные ссылки
+*   **Сайт (Kustomize):** [http://findyourpet.local](http://findyourpet.local)
+*   **Сайт (Helm):** [http://findyourpet-helm.local](http://findyourpet-helm.local)
+*   **Health Check API:** [http://findyourpet.local/api/server/stats](http://findyourpet.local/api/server/stats)
+
+---
+
+## Результат
+Приложение успешно разделено на независимые слои. База данных сохраняет данные между перезапусками, а приложение гибко настраивается под разные окружения через параметры Helm или слои Kustomize. Все выявленные баги фронтенда и сетевой связности устранены.
